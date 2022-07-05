@@ -1,7 +1,9 @@
 # CustomSLPA
 
 This the custom kernel implementation of SLPA 
+
 SLPA.cu is the implemetation
+
 the tests folder has test graphs which can be passed as an argument (in progress)
 
 compile with:
