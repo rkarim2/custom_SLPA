@@ -314,10 +314,10 @@ int main(int argc, char *argv[]) {
     file.close();
 
     convertToCSR(matrix, row, col, val, n);
-    for(int i = 0; i < n; i++) {
-        std::cout << row[i] << " ";
-    }
-    std::cout << "\n";
+    // for(int i = 0; i < n; i++) {
+    //     std::cout << row[i] << " ";
+    // }
+    // std::cout << "\n";
     //exit(0);
     // row[0] = 0;
     // row[1] = 3;
