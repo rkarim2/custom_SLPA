@@ -10,6 +10,7 @@
 #include <thrust/sort.h>
 #include <thrust/universal_vector.h>
 #include <chrono>
+#include <string>
 
 #define DEBUGS 0
 #define DEBUG1 0
@@ -294,6 +295,7 @@ void convertToCSR(char * argv[], int *& row2,  int *& col2, int &n, int & cols) 
     for(int i = 0; i < c->size(); i++) {
         col[i] = (*c)[i];
     }
+    std::cout << "move back to host\n";
     row2 = thrust::raw_pointer_cast(row.data());
     col2 = thrust::raw_pointer_cast(col.data());
 }
@@ -316,6 +318,8 @@ int main(int argc, char *argv[]) {
 
     convertToCSR(argv, row, col, n, cols);
 
+    std::cout << "finished convert\n" << "row is " << n << "cols is " << cols << "\n";
+    std::cout << "row[10] " << row[10] << std::endl;
     // cudaMallocManaged(&row, (n+1) * sizeof(int));
     // cudaMallocManaged(&col, cols * sizeof(int));
     cudaMallocManaged(&val, cols * sizeof(int));
