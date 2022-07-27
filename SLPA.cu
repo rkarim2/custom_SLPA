@@ -9,6 +9,7 @@
 #include <thrust/host_vector.h>
 #include <thrust/sort.h>
 #include <thrust/universal_vector.h>
+#include <chrono>
 
 #define DEBUGS 0
 #define DEBUG1 0
@@ -249,7 +250,7 @@ __global__ void SLPAPostProcess(triples *mem, int n, int T, float r) {
 //     }
 // }
 
-void convertToCSR(char * argv[], thrust::universal_vector<int> * row2, thrust::universal_vector<int> * col2, int &n, int & cols) {
+void convertToCSR(char * argv[], int *& row2,  int *& col2, int &n, int & cols) {
     std::string arg1(argv[1]);
     std::ifstream file(arg1);
     while (file.peek() == '%') file.ignore(2048, '\n');
@@ -279,7 +280,7 @@ void convertToCSR(char * argv[], thrust::universal_vector<int> * row2, thrust::u
 
     thrust::host_vector<int> row(n+1);
     row[0] = 0;
-    thrust::host_vector<int> col(cols);
+     thrust::host_vector<int> col(cols);
     int x = 0;
     int count = 0;
     for(int i = 0; i < n; i++) {
@@ -293,8 +294,8 @@ void convertToCSR(char * argv[], thrust::universal_vector<int> * row2, thrust::u
     for(int i = 0; i < c->size(); i++) {
         col[i] = (*c)[i];
     }
-    *row2 = row;
-    *col2 = col;
+    row2 = thrust::raw_pointer_cast(row.data());
+    col2 = thrust::raw_pointer_cast(col.data());
 }
 
 
@@ -313,7 +314,7 @@ int main(int argc, char *argv[]) {
     std::cout << "malloc call\n";
 
 
-    convertToCSR(argv, &row, &col, n, cols);
+    convertToCSR(argv, row, col, n, cols);
 
     // cudaMallocManaged(&row, (n+1) * sizeof(int));
     // cudaMallocManaged(&col, cols * sizeof(int));
