@@ -71,7 +71,7 @@ __global__ void SLPASpeaker(int * row, int *col, int *val, int * memnnz, int * r
                 max = mem[col[i]*T +j].val; 
             }
         }
-        labellist[i] = mem[col[i]*n + offset];
+        labellist[i] = mem[col[i]*T + offset];
         labellist[i].val = 1;
         labellist[i].iter = T;
     }
