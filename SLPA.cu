@@ -6,13 +6,15 @@
 #include <stdio.h>
 #include <math.h>
 #include <fstream> 
-#include <thrust/host_vector.h>
-#include <thrust/sort.h>
-#include <thrust/universal_vector.h>
+#include <vector>
+#include <algorithm>
+// #include <thrust/host_vector.h>
+// #include <thrust/sort.h>
+// #include <thrust/universal_vector.h>
 #include <chrono>
 #include <string>
 
-#define DEBUGS 0
+#define DEBUGS 1
 #define DEBUG1 0
 #define DEBUG2 0
 #define DEBUG3 0
@@ -251,7 +253,7 @@ __global__ void SLPAPostProcess(triples *mem, int n, int T, float r) {
 //     }
 // }
 
-void convertToCSR(char * argv[], int *& row2,  int *& col2, int &n, int & cols) {
+void convertToCSR(char * argv[], int ** row2,  int ** col2, int &n, int & cols) {
     std::string arg1(argv[1]);
     std::ifstream file(arg1);
     while (file.peek() == '%') file.ignore(2048, '\n');
@@ -260,44 +262,48 @@ void convertToCSR(char * argv[], int *& row2,  int *& col2, int &n, int & cols) 
     file >> n >> cols >> num_lines;
     std::cout << "# rows is " << n << " # cols is " << cols << " # lines is " << num_lines << "\n";
 
-    thrust::host_vector<int> * r = new thrust::host_vector<int>();
-    thrust::host_vector<int> * c = new thrust::host_vector<int>();
+    std::vector<std::pair<int,int>> * r = new std::vector<std::pair<int,int>>();
+    //std::vector<int> * c = new std::vector<int>();
     for (int l = 0; l < num_lines; l++) {
         int rowv, colv;
         file >> rowv >> colv;
-        r->push_back(rowv-1);
-        c->push_back(colv-1);
-        r->push_back(colv-1);
-        c->push_back(rowv-1);
+        r->push_back(std::make_pair(rowv-1, colv-1));
+        r->push_back(std::make_pair(colv-1, rowv-1));
+        // c->push_back(colv-1);
+        // r->push_back(colv-1);
+        // c->push_back(rowv-1);
     }
 
     std::cout << r->size() << std::endl;
     file.close();
     //std::cout << r->at(0) << " " <<  r->at(1) << "\n";
-    thrust::sort_by_key(thrust::host, (*r).begin(), (*r).end(), (*c).begin());
+    //thrust::sort_by_key(thrust::host, (*r).begin(), (*r).end(), (*c).begin());
+    std::sort(r->begin(), r->end(), [](std::pair<int,int> const &a, std::pair<int,int> const &b) {
+        return a.first < b.first;
+    });
     std::cout << "finshied sort" << std::endl;
 
     cols = num_lines*2;
 
-    thrust::host_vector<int> row(n+1);
+    std::vector<int> row(n+1);
     row[0] = 0;
-     thrust::host_vector<int> col(cols);
+    std::vector<int> col(cols);
     int x = 0;
     int count = 0;
     for(int i = 0; i < n; i++) {
-        while((*r)[x] == i) {
+        while((*r)[x].first == i) {
             count++;
             x++;
         }
         row[i+1] = count + row[i];
         count = 0;
     }
-    for(int i = 0; i < c->size(); i++) {
-        col[i] = (*c)[i];
+    for(int i = 0; i < r->size(); i++) {
+        col[i] = (*r)[i].second;
     }
     std::cout << "move back to host\n";
-    row2 = thrust::raw_pointer_cast(row.data());
-    col2 = thrust::raw_pointer_cast(col.data());
+    *row2 = row.data();
+    *col2 = col.data();
 }
 
 
@@ -311,100 +317,15 @@ int main(int argc, char *argv[]) {
     int cols = 56;
     int num_lines = 0;
     int * row;
-    int *col, *val, *row_id, *memnnz;
+    int *col;
+    int  *val;
+    int *row_id;
+    int *memnnz;
     triples *mem, *labellist;
     std::cout << "malloc call\n";
 
 
-    convertToCSR(argv, row, col, n, cols);
-
-    std::cout << "finished convert\n" << "row is " << n << "cols is " << cols << "\n";
-    std::cout << "row[10] " << row[10] << std::endl;
-    // cudaMallocManaged(&row, (n+1) * sizeof(int));
-    // cudaMallocManaged(&col, cols * sizeof(int));
-    cudaMallocManaged(&val, cols * sizeof(int));
-    cudaMallocManaged(&memnnz, n * sizeof(int));
-    cudaMallocManaged(&row_id, cols * sizeof(int));
-    cudaMallocManaged(&mem, n*T*sizeof(triples));
-    cudaMallocManaged(&labellist, cols*sizeof(triples));
     
-
-    // for(int i = 0; i < n; i++) {
-    //     std::cout << row[i] << " ";
-    // }
-    // std::cout << "\n";
-    //exit(0);
-    // row[0] = 0;
-    // row[1] = 3;
-    // row[2] = 7;
-    // row[3] = 12;
-    // row[4] = 17;
-    // row[5] = 21;
-    // row[6] = 26;
-    // row[7] = 31;
-    // row[8] = 34;
-    // row[9] = 38;
-    // row[10] = 42;
-    // row[11] = 46;
-    // row[12] = 49;
-    // row[13] = 56;
-
-    // col[0] = 1;
-    // col[1] = 2;
-    // col[2] = 3;
-    // col[3] = 0;
-    // col[4] = 2;
-    // col[5] = 3;
-    // col[6] = 12;
-    // col[7] = 0;
-    // col[8] = 1;
-    // col[9] = 3;
-    // col[10] = 6;
-    // col[11] = 12;
-    // col[12] = 0;
-    // col[13] = 1;
-    // col[14] = 2;
-    // col[15] = 8;
-    // col[16] = 12;
-    // col[17] = 5;
-    // col[18] = 6;
-    // col[19] = 7;
-    // col[20] = 12;
-    // col[21] = 4;
-    // col[22] = 6;
-    // col[23] = 7;
-    // col[24] = 9;
-    // col[25] = 12;
-    // col[26] = 2;
-    // col[27] = 4;
-    // col[28] = 5;
-    // col[29] = 7;
-    // col[30] = 12;
-    // col[31] = 4;
-    // col[32] = 5;
-    // col[33] = 6;
-    // col[34] = 3;
-    // col[35] = 9;
-    // col[36] = 10;
-    // col[37] = 11;
-    // col[38] = 5;
-    // col[39] = 8;
-    // col[40] = 10;
-    // col[41] = 11;
-    // col[42] = 8;
-    // col[43] = 9;
-    // col[44] = 11;
-    // col[45] = 12;
-    // col[46] = 8;
-    // col[47] = 9;
-    // col[48] = 10;
-    // col[49] = 1;
-    // col[50] = 2;
-    // col[51] = 3;
-    // col[52] = 4;
-    // col[53] = 5;
-    // col[54] = 6;
-    // col[55] = 10;
 
     // val[0] = 1;    
     // val[1] = 1;    
@@ -463,7 +384,130 @@ int main(int argc, char *argv[]) {
     // val[54] = 1;
     // val[55] = 1;
 
-    // row_id[0] = 0;    
+
+
+    int * trow;
+    int * tcol;
+    std::string arg1(argv[1]);
+    std::ifstream file(arg1);
+    while (file.peek() == '%') file.ignore(2048, '\n');
+    // Read number of rows and columns
+    file >> n >> cols >> num_lines;
+    std::cout << "# rows is " << n << " # cols is " << cols << " # lines is " << num_lines << "\n";
+
+    std::vector<std::pair<int,int>> * rc = new std::vector<std::pair<int,int>>();
+    //std::vector<int> * c = new std::vector<int>();
+    for (int l = 0; l < num_lines; l++) {
+        int rowv, colv;
+        file >> rowv >> colv;
+        rc->push_back(std::make_pair(rowv-1, colv-1));
+        rc->push_back(std::make_pair(colv-1, rowv-1));
+    }
+    
+    std::cout << rc->size() << std::endl;
+    file.close();
+    std::sort(rc->begin(), rc->end(), [](std::pair<int,int> const &a, std::pair<int,int> const &b) {
+        return a.first < b.first;
+    });
+    std::cout << "finshied sort" << std::endl;
+
+    cols = num_lines*2;
+    cudaMallocManaged(&row, n+1 * sizeof(int));
+    // row[0] = 0;
+    // row[1] = 3;
+    // row[2] = 7;
+    // row[3] = 12;
+    // row[4] = 17;
+    // row[5] = 21;
+    // row[6] = 26;
+    // row[7] = 31;
+    // row[8] = 34;
+    // row[9] = 38;
+    // row[10] = 42;
+    // row[11] = 46;
+    // row[12] = 49;
+    // row[13] = 56;
+    cudaMallocManaged(&col, cols * sizeof(int));
+    // col[0] = 1;
+    // col[1] = 2;
+    // col[2] = 3;
+    // col[3] = 0;
+    // col[4] = 2;
+    // col[5] = 3;
+    // col[6] = 12;
+    // col[7] = 0;
+    // col[8] = 1;
+    // col[9] = 3;
+    // col[10] = 6;
+    // col[11] = 12;
+    // col[12] = 0;
+    // col[13] = 1;
+    // col[14] = 2;
+    // col[15] = 8;
+    // col[16] = 12;
+    // col[17] = 5;
+    // col[18] = 6;
+    // col[19] = 7;
+    // col[20] = 12;
+    // col[21] = 4;
+    // col[22] = 6;
+    // col[23] = 7;
+    // col[24] = 9;
+    // col[25] = 12;
+    // col[26] = 2;
+    // col[27] = 4;
+    // col[28] = 5;
+    // col[29] = 7;
+    // col[30] = 12;
+    // col[31] = 4;
+    // col[32] = 5;
+    // col[33] = 6;
+    // col[34] = 3;
+    // col[35] = 9;
+    // col[36] = 10;
+    // col[37] = 11;
+    // col[38] = 5;
+    // col[39] = 8;
+    // col[40] = 10;
+    // col[41] = 11;
+    // col[42] = 8;
+    // col[43] = 9;
+    // col[44] = 11;
+    // col[45] = 12;
+    // col[46] = 8;
+    // col[47] = 9;
+    // col[48] = 10;
+    // col[49] = 1;
+    // col[50] = 2;
+    // col[51] = 3;
+    // col[52] = 4;
+    // col[53] = 5;
+    // col[54] = 6;
+    // col[55] = 10;
+    row[0] = 0;
+    int x = 0;
+    int count = 0;
+    for(int i = 0; i < n; i++) {
+        while((*rc)[x].first == i) {
+            count++;
+            x++;
+        }
+        row[i+1] = count + row[i];
+        count = 0;
+    }
+    for(int i = 0; i < rc->size(); i++) {
+        col[i] = (*rc)[i].second;
+    }
+    std::cout << "finished convert\n" << "row is " << n << "cols is " << cols << "\n";
+   
+    //gpuErrchk(cudaMallocManaged(&val, cols * sizeof(int)));
+    gpuErrchk(cudaMallocManaged(&memnnz, n * sizeof(int)));
+    gpuErrchk(cudaMallocManaged(&row_id, cols * sizeof(int)));
+    gpuErrchk(cudaMallocManaged(&mem, n*T*sizeof(triples)));
+    gpuErrchk(cudaMallocManaged(&labellist, cols*sizeof(triples)));
+    std::cout << "finished creation" << std::endl;
+    
+        // row_id[0] = 0;    
     // row_id[1] = 0;    
     // row_id[2] = 0;    
     // row_id[3] = 1;    
@@ -519,17 +563,17 @@ int main(int argc, char *argv[]) {
     // row_id[53] = 12;
     // row_id[54] = 12;
     // row_id[55] = 12;
-
-
     for(int i = 0; i < n; i++) {
         for(int j = row[i]; j < row[i+1]; j++) {
             row_id[j] = i;
         }
     }
+    std::cout << "finished row_id\n";
     for(int i = 0; i < cols; i++) {
         labellist[i].key = -1;
         labellist[i].val = 0;
     }
+    std::cout << "finished ll\n";
 
     for(int i = 0; i < n; i++) {
         memnnz[i] = 1;
@@ -538,6 +582,7 @@ int main(int argc, char *argv[]) {
             mem[i*T + j].val = 1;
         }
     }
+    std::cout << "finished mem\n";
 
     curandState *dev_random;
     cudaMallocManaged(&dev_random, N*B*sizeof(curandState));
